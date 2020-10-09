@@ -3,7 +3,11 @@ module.exports = {
     name: 'links',
     aliases: ['invite', 'link'],
     args: [],
-    description: ['各種リンクを表示します。'],
+    description: [
+        '各種リンクを表示します。',
+        '招待, サポートサーバー, 使い方, お問い合わせ, ソースコード',
+        'のURLを表示します。'
+    ],
     async execute(message) {
         await message.channel.send({
             embed: {
