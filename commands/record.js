@@ -13,7 +13,7 @@ module.exports = {
         'ボイスチャンネルに接続した状態で実行してください。',
         'ギルド以外や誰かが録音,再生中はご利用になれません。',
         '`end`, `stop`, `finish`, `fin`のいずれかを入力するか、30秒経過すると自動で終了します。',
-        '終了後10分以内であれば🔊リアクションで再生, 📥リアクションでファイルを送信します。'
+        '終了後10分以内であれば🔊リアクションで再生, 📥📩リアクションでファイルを送信します。'
     ],
     async execute(message, args, prefix) {
 
@@ -123,8 +123,8 @@ module.exports = {
                                 } else {
                                     const id = results.insertId;
                                     embed.description = '録音データは\n' +
-                                        `**${prefix}play ${id}** または🔊リアクションで再生、\n` +
-                                        `**${prefix}download ${id}** または📥リアクションで送信\n` +
+                                        `**${prefix}play ${id}** または🔊リアクションで再生\n` +
+                                        `**${prefix}download ${id}** または📥リアクションで送信(📩リアクションでDMに送信)\n` +
                                         `**${prefix}note ${id} <内容>** でノート(メモ)編集\n` +
                                         'することができます。';
                                     embed.footer = {text: `id: ${id}`};
@@ -140,9 +140,10 @@ module.exports = {
 
                         await end_massage.react('🔊');
                         await end_massage.react('📥');
+                        await end_massage.react('📩');
 
                         const filter = (reaction, user) => {
-                            return ['🔊', '📥'].includes(reaction.emoji.name) && user.id === message.author.id;
+                            return ['🔊', '📥', '📩'].includes(reaction.emoji.name) && user.id === message.author.id;
                         };
 
                         const collector = end_massage.createReactionCollector(filter, { time: 10 * 60000 });
@@ -155,8 +156,12 @@ module.exports = {
 
                             if (reaction.emoji.name === '🔊') {
                                 client.commands.get('play').execute(message, [res], prefix);
-                            } else {
+                            } else if (reaction.emoji.name === '📥') {
                                 client.commands.get('download').execute(message, [res], prefix);
+                            } else {
+                                const msg = message;
+                                msg.channel = await message.author.createDM();
+                                client.commands.get('download').execute(msg, [res], prefix);
                             }
                         });
 
