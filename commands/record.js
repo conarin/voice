@@ -13,7 +13,7 @@ module.exports = {
         'ボイスチャンネルに接続した状態で実行してください。',
         'ギルド以外や誰かが録音,再生中はご利用になれません。',
         '`end`, `stop`, `finish`, `fin`のいずれかを入力するか、30秒経過すると自動で終了します。',
-        '終了後10分以内であれば🔊リアクションで再生, 📥📩リアクションでファイルを送信します。'
+        '終了後10分以内であれば🔊リアクションで再生, 📥📩リアクションでファイルを送信します。(📩リアクションはDMに送信)'
     ],
     async execute(message, args, prefix) {
 
@@ -159,8 +159,10 @@ module.exports = {
                             } else if (reaction.emoji.name === '📥') {
                                 client.commands.get('download').execute(message, [res], prefix);
                             } else {
-                                const msg = message;
-                                msg.channel = await message.author.createDM();
+                                const msg = {
+                                    channel: await message.author.createDM(),
+                                    author: message.author
+                                };
                                 client.commands.get('download').execute(msg, [res], prefix);
                             }
                         });
