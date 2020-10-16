@@ -86,7 +86,7 @@ client.on('message', async message => {
     if (message.author.bot) return;
 
     const guild_flag = message.guild && message.guild.available;
-    let prefix = guild_flag ? `@${message.guild.me.nickname} ` : `@${client.user.username} `;
+    let prefix = guild_flag && message.guild.me.nickname ? `@${message.guild.me.nickname} ` : `@${client.user.username} `;
     if (guild_flag && message.guild.me.nickname) {
         const match = message.guild.me.nickname.match(/\[(.*)]/);
         if (match) {
