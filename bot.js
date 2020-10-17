@@ -85,9 +85,9 @@ client.on('voiceStateUpdate', oldState => {
 client.on('message', async message => {
     if (message.author.bot) return;
 
-    const guild_flag = message.guild && message.guild.available;
-    let prefix = guild_flag && message.guild.me.nickname ? `@${message.guild.me.nickname} ` : `@${client.user.username} `;
-    if (guild_flag && message.guild.me.nickname) {
+    const nickname = message.guild && message.guild.available && message.guild.me.nickname;
+    let prefix = nickname ? `@${message.guild.me.nickname} ` : `@${client.user.username} `;
+    if (nickname) {
         const match = message.guild.me.nickname.match(/\[(.*)]/);
         if (match) {
             const trim = match[1].trim();
