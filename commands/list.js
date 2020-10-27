@@ -1,6 +1,7 @@
 'use strict';
 const Discord = require('discord.js'),
-    moment = require('moment');
+    moment = require('moment'),
+    emoji = require('node-emoji');
 module.exports = {
     name: 'list',
     aliases: ['ls', 'records', 'リスト', '一覧'],
@@ -58,7 +59,7 @@ module.exports = {
             return '```' +
                 `id: ${data.id}\n` +
                 `date: ${date.format('YYYY-MM-DD HH:mm:ssZZ')}\n` +
-                `note: ${data.note}` +
+                `note: ${emoji.emojify(data.note)}` +
                 '```';
         });
 

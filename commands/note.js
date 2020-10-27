@@ -1,4 +1,5 @@
 'use strict';
+const emoji = require('node-emoji');
 module.exports = {
     name: 'note',
     aliases: ['memo', 'description', 'desc', 'メモ', '説明'],
@@ -20,7 +21,7 @@ module.exports = {
         embed.title = 'idを指定してください'
         if (!/^[1-9]\d*$/.test(args[0])) return message.channel.send({embed: embed});
 
-        const content = args.slice(1).join(' ');
+        const content = emoji.unemojify(args.slice(1).join(' '));
         if (content.length > 191) {
             return message.channel.send({embed: {
                     title: '文字数が長すぎます',
@@ -43,7 +44,7 @@ module.exports = {
                     embed.color = colors.orange;
                 } else {
                     embed.title = `id: ${args[0]}のnoteを更新しました`;
-                    embed.description = '```' + content + '```';
+                    embed.description = '```' + emoji.emojify(content) + '```';
                     embed.color = colors.green;
                 }
             }
