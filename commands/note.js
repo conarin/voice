@@ -33,7 +33,7 @@ module.exports = {
         sql.query('UPDATE voice.record SET note=? WHERE id=? AND user_id=?', [content, args[0], message.author.id], (error, results) => {
             if (error) {
                 console.log('select error: ' + error);
-                embed.title = 'データの取得に失敗しました';
+                embed.title = 'データの更新に失敗しました';
                 embed.description = `何度も発生する場合は[お問い合わせ](https://conarin.com/form?about=voice&type=bug&name=${message.author.username}%23${message.author.discriminator})から報告してください。`;
                 embed.color = colors.red;
             } else {
