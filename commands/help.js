@@ -7,8 +7,7 @@ module.exports = {
         'あなたが今見ているこれを表示します。',
         '◀▶リアクションでページ移動、各番号のリアクションで詳細を表示します。',
         '<>で囲われているものは必要、[]で囲われているものは任意の引数です。',
-        '引数にキーワードを渡すと該当するコマンドの詳細を表示します。',
-        '10分経過するとメッセージを削除します。'
+        '引数にキーワードを渡すと該当するコマンドの詳細を表示します。'
     ],
     async execute(message, args, prefix) {
         const limit = 3;
@@ -92,7 +91,14 @@ module.exports = {
         });
 
         collector.on('end', () => {
-            send_message.delete();
+            if (message.guild && message.guild.available) {
+                const permission = message.channel.permissionsFor(message.guild.me);
+                if (permission.has('MANAGE_MESSAGES')) send_message.reactions.removeAll();
+            } else {
+                send_message.reactions.cache.forEach( reaction => {
+                    reaction.users.remove(client.user);
+                });
+            }
         });
 
         const move_page = (command) => {
