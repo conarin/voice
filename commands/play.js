@@ -1,5 +1,6 @@
 'use strict';
-const Discord = require('discord.js');
+const Discord = require('discord.js'),
+    emoji = require('node-emoji');
 module.exports = {
     name: 'play',
     aliases: ['再生'],
@@ -54,7 +55,29 @@ module.exports = {
         if (!res) return message.channel.send({embed: embed});
 
         if (res.user_id !== message.author.id) {
-            return message.channel.send({embed: {
+            const permissions = await new Promise(resolve => {
+                sql.query('SELECT * FROM voice.permission WHERE data_id=?', res.id, (error, results) => {
+                    if (error) {
+                        console.log('select error: ' + error);
+                        resolve(null);
+                    } else {
+                        resolve(results);
+                    }
+                });
+            });
+
+            const roles = message.guild && message.guild.available ? permissions
+                    .filter(row => message.guild.roles.cache.has(row.snowflake))
+                    .map(row => row.snowflake)
+                : [];
+
+            const member_roles = message.guild && message.guild.available ?
+                message.member.roles.cache.map(role => role.id)
+                : [];
+
+            const permit = [...roles, ...member_roles]
+                .filter(item => roles.includes(item) && member_roles.includes(item)).length > 0;
+            if (!permit) return message.channel.send({embed: {
                     title: '他人の音声を再生することはできません',
                     description: `ご自身の録音時に発行されたidを入力してください。`,
                     color: colors.orange
@@ -72,7 +95,7 @@ module.exports = {
         } else play_connections.push(message.guild.id);
 
         embed.title = `id: ${res.id}を再生します`;
-        embed.description = res.note;
+        embed.description = emoji.emojify(res.note);
         embed.timestamp = Discord.SnowflakeUtil.deconstruct(res.file_id).date;
         embed.color = colors.green;
         const msg = await message.channel.send({embed: embed});

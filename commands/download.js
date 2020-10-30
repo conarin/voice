@@ -1,6 +1,7 @@
 'use strict';
 const Discord = require('discord.js'),
-    moment = require('moment');
+    moment = require('moment'),
+    emoji = require('node-emoji');
 module.exports = {
     name: 'download',
     aliases: ['dl', 'send', 'file', 'ダウンロード', '送信', 'ファイル'],
@@ -42,7 +43,29 @@ module.exports = {
         if (!res) return message.channel.send({embed: embed});
 
         if (res.user_id !== message.author.id) {
-            return message.channel.send({embed: {
+            const permissions = await new Promise(resolve => {
+                sql.query('SELECT * FROM voice.permission WHERE data_id=?', res.id, (error, results) => {
+                    if (error) {
+                        console.log('select error: ' + error);
+                        resolve(null);
+                    } else {
+                        resolve(results);
+                    }
+                });
+            });
+
+            const roles = message.guild && message.guild.available ? permissions
+                    .filter(row => message.guild.roles.cache.has(row.snowflake))
+                    .map(row => row.snowflake)
+                : [];
+
+            const member_roles = message.guild && message.guild.available ?
+                message.member.roles.cache.map(role => role.id)
+                : [];
+
+            const permit = [...roles, ...member_roles]
+                .filter(item => roles.includes(item) && member_roles.includes(item)).length > 0;
+            if (!permit) return message.channel.send({embed: {
                     title: '他人の音声を送信することはできません',
                     description: 'ご自身の録音時に発行されたidを入力してください。',
                     color: colors.orange
@@ -72,7 +95,7 @@ module.exports = {
                 description: '```\n' +
                     `user: ${client.users.cache.get(res.user_id).tag}\n` +
                     `date: ${date.format('YYYY-MM-DD HH:mm:ssZZ')}\n` +
-                    `note: ${res.note}\n` +
+                    `note: ${emoji.emojify(res.note)}\n` +
                     '```',
                 footer: { text: '誤送信した場合、10分以内に🗑️リアクションをすればこの投稿は削除されます' },
                 color: colors.green

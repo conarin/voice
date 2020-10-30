@@ -9,7 +9,10 @@ module.exports = {
     description: [
         '録音したデータの一蘭を表示します。',
         '◀▶リアクションでページ移動、🔚リアクションで終了します。',
-        '🔚リアクションをするか、10分経過するとメッセージを削除します。'
+        '10分以内に🔚リアクションをするとメッセージを削除します。',
+        'note, permission項目は設定をしていない場合は表示されません。',
+        '権限を設定している場合は実行したサーバーにある役職のみ表示されます。',
+        'それ以外のものは「+ 数字roles」と表示されます。'
     ],
     async execute(message) {
         const embed = {
@@ -23,9 +26,6 @@ module.exports = {
                 sql.query('SELECT * FROM voice.record WHERE user_id=? LIMIT ?, 5', [message.author.id, offset], (error, results) => {
                     if (error) {
                         console.log('select error: ' + error);
-                        embed.title = 'データの取得に失敗しました';
-                        embed.description = `何度も発生する場合は[お問い合わせ](https://conarin.com/form?about=voice&type=bug&name=${message.author.username}%23${message.author.discriminator})から報告してください。`;
-                        embed.color = colors.red;
                         resolve(null);
                     } else {
                         resolve(results);
@@ -54,16 +54,44 @@ module.exports = {
 
         if (!res.length || !count) return message.channel.send({embed: embed});
 
-        const desc_format = (res) => res.map( data => {
-            const date = moment(Discord.SnowflakeUtil.deconstruct(data.file_id).date);
-            return '```' +
-                `id: ${data.id}\n` +
-                `date: ${date.format('YYYY-MM-DD HH:mm:ssZZ')}\n` +
-                `note: ${emoji.emojify(data.note)}` +
-                '```';
-        });
+        const desc_format = async (res) => {
+            const process = res.map( async data => {
+                const permissions = await new Promise(resolve => {
+                    sql.query('SELECT * FROM voice.permission WHERE data_id=?', data.id, (error, results) => {
+                        if (error) {
+                            console.log('select error: ' + error);
+                            resolve(null);
+                        } else {
+                            resolve(results);
+                        }
+                    });
+                });
 
-        const desc = desc_format(res);
+                const roles = message.guild && message.guild.available ? permissions
+                    .filter(row => message.guild.roles.cache.has(row.snowflake))
+                    .map(row => message.guild.roles.cache.get(row.snowflake).name)
+                    : [];
+
+                const date = moment(Discord.SnowflakeUtil.deconstruct(data.file_id).date);
+
+                let reply = `id: ${data.id}\n` +
+                    `date: ${date.format('YYYY-MM-DD HH:mm:ssZZ')}\n`;
+
+                const note = emoji.emojify(data.note);
+                if (note.length)  reply += `note: ${note}\n`;
+
+                const diff = permissions.length - roles.length;
+                if (permissions.length) reply += `permissions:`;
+                if (roles.length) reply += ' ' + roles.join(', ');
+                if (diff>0) reply += ` + ${diff}roles`;
+
+                return '```' + reply + '```';
+            });
+            return await Promise.all(process);
+        };
+
+        const desc = await desc_format(res);
+        console.log(desc);
 
         const reactions = ['◀', '▶', '🔚'];
         let page = 1;
@@ -87,10 +115,10 @@ module.exports = {
         const collector = msg.createReactionCollector(filter, { time: 10 * 60000 });
 
         collector.on('collect', async (reaction, user) => {
-            if (reaction.emoji.name === '🔚') return collector.stop();
+            if (reaction.emoji.name === '🔚') return collector.stop('end_react');
 
             if (message.guild && message.guild.available) {
-                const permission = message.channel.permissionsFor(message.guild.me)
+                const permission = message.channel.permissionsFor(message.guild.me);
                 if (permission.has('MANAGE_MESSAGES')) reaction.users.remove(user).catch(console.error);
             }
 
@@ -136,7 +164,7 @@ module.exports = {
                 }
             });
 
-            const desc = desc_format(res);
+            const desc = await desc_format(res);
 
             await msg.edit({embed: {
                     title: `録音一覧 ${page}/${pages}`,
@@ -147,8 +175,17 @@ module.exports = {
             });
         });
 
-        collector.on('end', () => {
-            msg.delete();
+        collector.on('end', (collected, reason) => {
+            if (reason === 'end_react') {
+                msg.delete();
+            } else if (message.guild && message.guild.available) {
+                const permission = message.channel.permissionsFor(message.guild.me);
+                if (permission.has('MANAGE_MESSAGES')) msg.reactions.removeAll();
+            } else {
+                msg.reactions.cache.forEach( reaction => {
+                    reaction.users.remove(client.user);
+                });
+            }
         });
 
     },
