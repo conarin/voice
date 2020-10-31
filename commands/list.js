@@ -91,7 +91,6 @@ module.exports = {
         };
 
         const desc = await desc_format(res);
-        console.log(desc);
 
         const reactions = ['◀', '▶', '🔚'];
         let page = 1;
