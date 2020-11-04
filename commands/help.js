@@ -94,6 +94,9 @@ module.exports = {
             if (message.guild && message.guild.available) {
                 const permission = message.channel.permissionsFor(message.guild.me);
                 if (permission.has('MANAGE_MESSAGES')) send_message.reactions.removeAll();
+                else send_message.reactions.cache.forEach( reaction => {
+                    reaction.users.remove(client.user);
+                });
             } else {
                 send_message.reactions.cache.forEach( reaction => {
                     reaction.users.remove(client.user);

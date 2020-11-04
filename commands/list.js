@@ -180,6 +180,9 @@ module.exports = {
             } else if (message.guild && message.guild.available) {
                 const permission = message.channel.permissionsFor(message.guild.me);
                 if (permission.has('MANAGE_MESSAGES')) msg.reactions.removeAll();
+                else msg.reactions.cache.forEach( reaction => {
+                    reaction.users.remove(client.user);
+                });
             } else {
                 msg.reactions.cache.forEach( reaction => {
                     reaction.users.remove(client.user);
