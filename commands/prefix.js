@@ -49,8 +49,8 @@ module.exports = {
         }
 
         let nickname = message.guild.me.nickname;
-        if (nickname) {
-            const match = nickname.match(/\[(.*)]/);
+        const match = nickname.match(/\[(.*)]/);
+        if (nickname && match) {
             nickname = nickname.replace(match[0], `[${args.join(' ')}]`);
         } else {
             nickname = `[${args.join(' ')}]${client.user.username}`;
