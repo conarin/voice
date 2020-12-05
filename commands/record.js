@@ -45,7 +45,7 @@ module.exports = {
         connection.play('./cursor1.mp3');
 
         const audio = connection.receiver.createStream(message.author, {mode: 'pcm', end: 'manual'});
-        audio.pipe(new FileWriter(path + '.wav', {
+        const recording = audio.pipe(new FileWriter(path + '.wav', {
             bitDepth: 16,
             sampleRate: 48000,
             channels: 2
@@ -72,8 +72,11 @@ module.exports = {
         const index = rec_connections[message.guild.id].indexOf(message.author.id);
         rec_connections[message.guild.id].splice(index, 1);
 
-        audio.end();
         connection.play('./cursor1.mp3');
+
+        recording.end();
+        audio.destroy();
+        connection.receiver.packets.streams.delete(message.author.id);
 
         ffmpeg()
             .input(path + '.wav')
