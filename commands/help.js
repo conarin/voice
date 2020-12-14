@@ -10,6 +10,40 @@ module.exports = {
         '引数にキーワードを渡すと該当するコマンドの詳細を表示します。'
     ],
     async execute(message, args, prefix) {
+        const move_page = (command) => {
+            const command_index = helps.indexOf(command);
+
+            page = Math.floor((command_index + 1) / limit);
+            if ((command_index + 1) % limit !== 0) ++page;
+
+            embed.title = `ヘルプ ${page}/${all_page}`;
+
+            help = helps.slice(page * limit - limit, page * limit);
+            embed.fields = help.map((command, index) => {
+                return {
+                    name: `${reactions[index + 2]} ${prefix}${command.name} ${command.args.join(' ')}`,
+                    value: `${command.description[0]}`
+                }
+            });
+        }
+
+        const details_command = (command) => {
+            if (command) {
+                let aliases = '';
+                if (command.aliases.length) aliases = `aliases: \`${command.aliases.join('\`, \`')}\``;
+
+                embed.fields[limit] = {
+                    name: `${prefix}${command.name} ${command.args.join(' ')}`,
+                    value: `${aliases}\n\n${command.description.join('\n')}`
+                };
+            } else {
+                embed.fields[limit] = {
+                    name: 'null',
+                    value: 'Coming Soon'
+                };
+            }
+        }
+
         const limit = 3;
 
         const count = helps.length;
@@ -103,40 +137,5 @@ module.exports = {
                 });
             }
         });
-
-        const move_page = (command) => {
-            const command_index = helps.indexOf(command);
-
-            page = Math.floor((command_index + 1) / limit);
-            if ((command_index + 1) % limit !== 0) ++page;
-
-            embed.title = `ヘルプ ${page}/${all_page}`;
-
-            help = helps.slice(page * limit - limit, page * limit);
-            embed.fields = help.map((command, index) => {
-                return {
-                    name: `${reactions[index + 2]} ${prefix}${command.name} ${command.args.join(' ')}`,
-                    value: `${command.description[0]}`
-                }
-            });
-        }
-
-        const details_command = (command) => {
-            if (command) {
-                let aliases = '';
-                if (command.aliases.length) aliases = `aliases: \`${command.aliases.join('\`, \`')}\``;
-
-                embed.fields[limit] = {
-                    name: `${prefix}${command.name} ${command.args.join(' ')}`,
-                    value: `${aliases}\n\n${command.description.join('\n')}`
-                };
-            } else {
-                embed.fields[limit] = {
-                    name: 'null',
-                    value: 'Coming Soon'
-                };
-            }
-        }
-
     },
 };
