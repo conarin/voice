@@ -12,7 +12,7 @@ module.exports = {
         '録音を開始します。',
         'ボイスチャンネルに接続した状態で実行してください。',
         'ギルド以外や誰かが録音,再生中はご利用になれません。',
-        '`end`, `stop`, `finish`, `fin`のいずれかを入力するか、30秒経過すると自動で終了します。',
+        '✅リアクションを押すか、30秒経過すると自動で終了します。',
         '終了後10分以内であれば🔊リアクションで再生, 📥📩リアクションでファイルを送信します。(📩リアクションはDMに送信)'
     ],
     async execute(message, args, prefix) {
@@ -51,23 +51,28 @@ module.exports = {
             channels: 2
         }));
 
-        const words = ['end', 'stop', 'finish', 'fin'];
-
-        await message.channel.send({
+        const send_message = await message.channel.send({
             embed: {
                 title: `${message.member.nickname || message.author.username}さんの録音を開始しました`,
-                description: `\`${words.join('`,`')}\`のいずれかを入力するか、30秒経過すると終了します。`,
+                description: `✅リアクションを押すか、30秒経過すると終了します。`,
                 color: colors.green
             }
         });
-
-        const filter = m => m.author.id === message.author.id &&
-            m.channel.id === message.channel.id &&
-            words.some( (word) => m.content === word );
-
         embed.title = `${message.member.nickname || message.author.username}さんの録音を終了しました`;
-        await message.channel.awaitMessages(filter, { max: 1, time: 30 * 1000, errors: ['time'] })
-            .catch( () => embed.title = '制限時間のため' + embed.title );
+
+        await send_message.react('✅');
+
+        const react_filter = (reaction, user) => reaction.emoji.name === '✅' && user.id === message.author.id;
+        await send_message.awaitReactions(react_filter, { max: 1, time: 30 * 1000, errors: ['time'] })
+            .catch(() => embed.title = '制限時間のため' + embed.title)
+            .finally(() => {
+                send_message.reactions.removeAll()
+                    .catch(() => {
+                        send_message.reactions.cache.forEach( reaction => {
+                            reaction.users.remove(client.user);
+                        });
+                    });
+            });
 
         const index = rec_connections[message.guild.id].indexOf(message.author.id);
         rec_connections[message.guild.id].splice(index, 1);
@@ -88,7 +93,7 @@ module.exports = {
             .on('error', (error) => {
                 console.log(error);
 
-                return message.channel.send({embed: {
+                send_message.edit({embed: {
                         title: 'ファイル形式の変換に失敗しました',
                         description: `何度も発生する場合は[お問い合わせ](https://conarin.com/form?about=voice&type=bug&name=${message.author.username}%23${message.author.discriminator})から報告してください。`,
                         color: colors.red
@@ -125,11 +130,32 @@ module.exports = {
                                     resolve(null);
                                 } else {
                                     const id = results.insertId;
-                                    embed.description = '録音データは\n' +
-                                        `**${prefix}play ${id}** または🔊リアクションで再生\n` +
-                                        `**${prefix}download ${id}** または📥リアクションで送信(📩リアクションでDMに送信)\n` +
-                                        `**${prefix}note ${id} <内容>** でノート(メモ)編集\n` +
-                                        'することができます。';
+                                    embed.description = [
+                                        '録音データは以下のことをすることができます。',
+                                        `詳細は\`${prefix}help [CommandName]\`で表示します。`
+                                    ].join('\n');
+                                    embed.fields = [
+                                        {
+                                            name: '🔊再生',
+                                            value: `\`${prefix}play ${id}\` または🔊リアクション`,
+                                        },
+                                        {
+                                            name: '📥送信',
+                                            value: `\`${prefix}download ${id}\` または📥リアクション(📩リアクションでDMへ)`,
+                                        },
+                                        {
+                                            name: '🗑削除',
+                                            value: `\`${prefix}delete ${id}\` または🗑リアクション`,
+                                        },
+                                        {
+                                            name: '📝ノート(メモ)編集',
+                                            value: `\`${prefix}note ${id} <内容>\``,
+                                        },
+                                        {
+                                            name: '🔧再生,ダウンロードの権限設定',
+                                            value: `\`${prefix}permission <allow | enable | deny | disabled> ${id} <role>\``,
+                                        },
+                                    ];
                                     embed.footer = {text: `id: ${id}`};
                                     embed.color = colors.green;
                                     resolve(id);
@@ -137,62 +163,91 @@ module.exports = {
                             });
                         });
 
-                        const end_massage = await message.channel.send({embed: embed});
+                        await send_message.edit({embed: embed})
 
                         if (!res) return;
 
-                        await end_massage.react('🔊');
-                        await end_massage.react('📥');
-                        await end_massage.react('📩');
+                        await send_message.react('🔊');
+                        await send_message.react('📥');
+                        await send_message.react('📩');
+                        await send_message.react('🗑');
 
                         const filter = (reaction, user) => {
-                            return ['🔊', '📥', '📩'].includes(reaction.emoji.name) && user.id === message.author.id;
+                            return ['🔊', '📥', '📩', '🗑'].includes(reaction.emoji.name) && user.id === message.author.id;
                         };
 
-                        const collector = end_massage.createReactionCollector(filter, { time: 10 * 60000 });
+                        const collector = send_message.createReactionCollector(filter, { time: 10 * 60000 });
 
+                        let delete_flag = false;
                         collector.on('collect', async (reaction, user) => {
                             if (message.guild && message.guild.available) {
                                 const permission = message.channel.permissionsFor(message.guild.me)
                                 if (permission.has('MANAGE_MESSAGES')) reaction.users.remove(user).catch(console.error);
                             }
 
+                            if (delete_flag) return;
+
                             if (reaction.emoji.name === '🔊') {
                                 client.commands.get('play').execute(message, [res], prefix);
                             } else if (reaction.emoji.name === '📥') {
                                 client.commands.get('download').execute(message, [res], prefix);
-                            } else {
+                            } else if (reaction.emoji.name === '📩') {
                                 const msg = {
                                     channel: await message.author.createDM(),
                                     author: message.author
                                 };
                                 client.commands.get('download').execute(msg, [res], prefix);
+                            } else if (reaction.emoji.name === '🗑') {
+                                delete_flag = true;
+                                await send_message.edit({
+                                    embed: {
+                                        description: [
+                                            '本当によろしいですか？',
+                                            'よろしければもう一度🗑を押してください。',
+                                            '違うリアクションを押すか、30秒経過するとキャンセルされます。'
+                                        ].join('\n'),
+                                        footer: {text: `id: ${res}`},
+                                        color: colors.green
+                                    }
+                                });
+
+                                const filter = (reaction, user) => {
+                                    return user.id === message.author.id;
+                                };
+                                send_message.awaitReactions(filter, { max: 1, time: 30 * 1000, errors: ['time'] })
+                                    .then(collected => {
+                                        if (collected.first().emoji.name === '🗑') {
+                                            client.commands.get('delete').execute(message, [res], prefix);
+                                            collector.stop('delete');
+                                        } else {
+                                            send_message.edit({embed: embed});
+                                        }
+                                    })
+                                    .catch(() => send_message.edit({embed: embed}))
+                                    .finally(() => delete_flag = false);
                             }
                         });
 
-                        collector.on('end', () => {
-                            end_massage.reactions.removeAll()
+                        collector.on('end', (collected, reason) => {
+                            if (reason === 'delete') return send_message.delete();
+
+                            send_message.reactions.removeAll()
                                 .catch( () => {
-                                    end_massage.reactions.cache.forEach( reaction => {
+                                    send_message.reactions.cache.forEach( reaction => {
                                         reaction.users.remove(client.user);
                                     });
                                 });
-                            end_massage.edit({embed: {
-                                    description: '録音データは\n' +
-                                        `**${prefix}play ${res}** で再生、\n` +
-                                        `**${prefix}download ${res}** で送信\n` +
-                                        `**${prefix}note ${res} <内容>** でノート(メモ)編集\n` +
-                                        'することができます。',
-                                    footer: {text: `id: ${res}`},
-                                    color: colors.green
-                                }
+
+                            embed.fields.forEach((value, index, array) => {
+                                array[index].value = value.value.replace(/ または.*/, '');
                             });
+                            send_message.edit({embed: embed});
                         });
                     })
                     .catch( error => {
                         console.log(path);
                         console.log(error.stack);
-                        message.channel.send({embed: {
+                        send_message.edit({embed: {
                                 title: '録音データの送信に失敗しました',
                                 description: `何度も発生する場合は[お問い合わせ](https://conarin.com/form?about=voice&type=bug&name=${message.author.username}%23${message.author.discriminator})から報告してください。`,
                                 color: colors.red
