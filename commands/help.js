@@ -6,6 +6,7 @@ module.exports = {
     description: [
         'あなたが今見ているこれを表示します。',
         '◀▶リアクションでページ移動、各番号のリアクションで詳細を表示します。',
+        '❌リアクションを押すとヘルプと終了し(閉じ)ます。',
         '<>で囲われているものは必要、[]で囲われているものは任意の引数です。',
         '引数にキーワードを渡すと該当するコマンドの詳細を表示します。'
     ],
@@ -58,7 +59,7 @@ module.exports = {
             footer: { text: `全 ${count} 件` }
         };
 
-        const reactions = ['◀','▶','1️⃣','2️⃣','3️⃣'];
+        const reactions = ['◀','▶','1️⃣','2️⃣','3️⃣','❌'];
 
         let help = helps.slice( page * limit - limit, page * limit );
         embed.fields = help.map( (command, index) => {
@@ -97,12 +98,14 @@ module.exports = {
         collector.on('collect', async (reaction, user) => {
             if (message.guild && message.guild.available) {
                 const permission = message.channel.permissionsFor(message.guild.me)
-                if (permission.has('MANAGE_MESSAGES')) reaction.users.remove(user).catch(console.error);
+                if (permission.has('MANAGE_MESSAGES')) await reaction.users.remove(user).catch(console.error);
             }
 
             let index = page*limit-limit;
 
-            if (['◀','▶'].includes(reaction.emoji.name)) {
+            if (reaction.emoji.name === '❌') {
+                return collector.stop('close');
+            } else if (['◀','▶'].includes(reaction.emoji.name)) {
                 if (reaction.emoji.name === '◀') {
                     if (page === 1) page = all_page;
                     else --page;
@@ -124,7 +127,9 @@ module.exports = {
             await send_message.edit({embed:embed});
         });
 
-        collector.on('end', () => {
+        collector.on('end', (collected, reason) => {
+            if (reason === 'close') return send_message.delete();
+
             if (message.guild && message.guild.available) {
                 const permission = message.channel.permissionsFor(message.guild.me);
                 if (permission.has('MANAGE_MESSAGES')) send_message.reactions.removeAll();
