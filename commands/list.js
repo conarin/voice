@@ -9,7 +9,7 @@ module.exports = {
     description: [
         '録音したデータの一蘭を表示します。',
         '◀▶リアクションでページ移動、🔚リアクションで終了します。',
-        '10分以内に🔚リアクションをするとメッセージを削除します。',
+        '10分以内に❌リアクションをするとメッセージを削除します。',
         'note, permission項目は設定をしていない場合は表示されません。',
         '権限を設定している場合は実行したサーバーにある役職のみ表示されます。',
         'それ以外のものは「+ 数字roles」と表示されます。'
@@ -92,7 +92,7 @@ module.exports = {
 
         const desc = await desc_format(res);
 
-        const reactions = ['◀', '▶', '🔚'];
+        const reactions = ['◀', '▶', '❌'];
         let page = 1;
         let pages = Math.floor(count / 5);
         if (count % 5 !== 0) ++pages;
@@ -114,7 +114,7 @@ module.exports = {
         const collector = msg.createReactionCollector(filter, { time: 10 * 60000 });
 
         collector.on('collect', async (reaction, user) => {
-            if (reaction.emoji.name === '🔚') return collector.stop('end_react');
+            if (reaction.emoji.name === '❌') return collector.stop('close');
 
             if (message.guild && message.guild.available) {
                 const permission = message.channel.permissionsFor(message.guild.me);
@@ -175,9 +175,9 @@ module.exports = {
         });
 
         collector.on('end', (collected, reason) => {
-            if (reason === 'end_react') {
-                msg.delete();
-            } else if (message.guild && message.guild.available) {
+            if (reason === 'close') return msg.delete();
+
+            if (message.guild && message.guild.available) {
                 const permission = message.channel.permissionsFor(message.guild.me);
                 if (permission.has('MANAGE_MESSAGES')) msg.reactions.removeAll();
                 else msg.reactions.cache.forEach( reaction => {
