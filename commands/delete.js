@@ -2,39 +2,55 @@
 module.exports = {
     name: 'delete',
     aliases: ['del', 'remove', 'rem', 'rm', '削除'],
-    args: ['<id>'],
+    args: ['<id>...'],
     description: [
-        '録音したデータを録音一覧から削除します。'
+        '録音したデータを録音一覧から削除します。',
+        'スペースで区切ることで複数削除できます。'
     ],
-    async execute(message, args, prefix) {
+    async execute(message, args) {
+        const results = [];
 
-        const embed = {
-            title: 'idを指定してください',
-            description: `${prefix}delete <id>`,
-            color: colors.orange
-        };
-
-        if (!/^[1-9]\d*$/.test(args[0])) return message.channel.send({embed: embed});
-
-        sql.query('DELETE FROM voice.record WHERE id=? AND user_id=?', [args[0], message.author.id], (error, results) => {
-            if (error) {
-                console.log('select error: ' + error);
-                embed.title = 'データの取得に失敗しました';
-                embed.description = `何度も発生する場合は[お問い合わせ](https://conarin.com/form?about=voice&type=bug&name=${message.author.username}%23${message.author.discriminator})から報告してください。`;
-                embed.color = colors.red;
-            } else {
-                if (results.affectedRows === 0) {
-                    embed.title = '正しいidを入力してください';
-                    embed.description = '指定されたidが存在しないか、他人のidのため削除されませんでした。';
-                    embed.color = colors.orange;
-                } else {
-                    embed.title = `id: ${args[0]}を削除しました`;
-                    embed.description = null;
-                    embed.color = colors.green;
-                }
+        for (const id of args) {
+            if (!/^[1-9]\d*$/.test(id)) {
+                results.push('🟠 idを正しく入力してください');
+                continue;
             }
-            message.channel.send({embed: embed});
-        });
 
+            const res = await new Promise(resolve => {
+                sql.query('DELETE FROM voice.record WHERE id=? AND user_id=?', [id, message.author.id], (error, results) => {
+                    if (error) {
+                        console.log('select error: ' + error);
+                        resolve('🔴 データの取得に失敗しました');
+                    } else {
+                        if (results.affectedRows === 0) {
+                            resolve('🟠 存在しないidか、他人のidです');
+                        } else {
+                            resolve(`🟢 id: ${id}を削除しました`);
+                        }
+                    }
+                });
+            });
+
+            results.push(res);
+        }
+
+        let msg = '';
+        for (const result of results) {
+            if (msg.length + result.length > 2048) {
+                await message.channel.send({
+                    embed: {
+                        description: msg,
+                        color: colors.green
+                    }
+                });
+                msg = result;
+            } else msg += '\n' + result;
+        }
+        await message.channel.send({
+            embed:{
+                description: msg,
+                color: colors.green
+            }
+        });
     },
 };
