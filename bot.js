@@ -1,3 +1,18 @@
+const Discord = require('discord.js'),
+    env = process.env;
+require('dotenv').config();
+
+const client = new Discord.Client({ ws: { intents: Discord.Intents.ALL }, restTimeOffset: 100 });
+
+client.once('ready', async () => {
+    await client.user.setActivity('サ終', { type: 'PLAYING' })
+    await client.user.setStatus('dnd');
+
+    console.log('voice: 準備完了');
+});
+
+client.login(env.TOKEN);
+/*
 'use strict';
 const Discord = require('discord.js'),
     mysql = require('mysql'),
@@ -164,3 +179,4 @@ client.on('message', async message => {
 });
 
 client.login(env.TOKEN);
+*/
